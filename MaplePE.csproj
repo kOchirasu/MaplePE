@@ -46,28 +46,29 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client.cs" />
+    <Compile Include="MaplePacketLib\Acceptor.cs" />
+    <Compile Include="MaplePacketLib\ServerInfo.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="MaplePacketLib\Acceptor.cs" />
     <Compile Include="MaplePacketLib\Connector.cs" />
     <Compile Include="MaplePacketLib\Cryptography\AesCipher.cs" />
     <Compile Include="MaplePacketLib\Cryptography\CipherType.cs" />
     <Compile Include="MaplePacketLib\Cryptography\MapleCipher.cs" />
     <Compile Include="MaplePacketLib\HexEncoding.cs" />
     <Compile Include="MaplePacketLib\PacketException.cs" />
-    <Compile Include="MaplePacketLib\PacketHandler.cs" />
     <Compile Include="MaplePacketLib\PacketReader.cs" />
     <Compile Include="MaplePacketLib\PacketWriter.cs" />
-    <Compile Include="MaplePacketLib\ServerInfo.cs" />
     <Compile Include="MaplePacketLib\Session.cs" />
     <Compile Include="MaplePacketLib\SessionType.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Server.cs" />
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

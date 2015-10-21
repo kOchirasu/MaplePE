@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Sockets;
 using MaplePacketLib.Cryptography;
+using System.Diagnostics;
 
 namespace MaplePacketLib {
     public sealed class Session {
@@ -64,28 +65,26 @@ namespace MaplePacketLib {
         }
 
         internal void Start(ServerInfo info) {
-            if (info != null) {
-                var siv = new byte[4];
-                var riv = new byte[4];
+            m_serverCipher = new MapleCipher(info.Version, info.Riv, m_aesCipher, CipherType.Decrypt);
+            m_clientCipher = new MapleCipher(info.Version, info.Siv, m_aesCipher, CipherType.Encrypt);
 
-                Random.NextBytes(siv);
-                Random.NextBytes(riv);
+            PacketWriter pw = new PacketWriter(15, 17);
+            pw.WriteShort(info.Version);
+            pw.WriteMapleString(info.Subversion);
+            pw.WriteBytes(info.Riv);
+            pw.WriteBytes(info.Siv);
+            pw.WriteShort(info.Locale);
 
-                m_clientCipher = new MapleCipher(info.Version, siv, m_aesCipher, CipherType.Encrypt);
-                m_serverCipher = new MapleCipher(info.Version, riv, m_aesCipher, CipherType.Decrypt);
-
-                using (var p = new PacketWriter(14, 16)) {
-                    p.WriteShort(info.Version);
-                    p.WriteMapleString(info.Subversion);
-                    p.WriteBytes(riv);
-                    p.WriteBytes(siv);
-                    p.WriteByte(info.Locale);
-
-                    SendRawPacket(p.ToArray());
-                }
-            }
+            SendRawPacket(pw.ToArray());
 
             Receive();
+
+            Debug.WriteLine("Started local server (toClient)");
+        }
+
+        internal void Start() {
+            Receive();
+            Debug.WriteLine("Started local client (toServer)");
         }
 
         private void Receive() {
@@ -95,6 +94,7 @@ namespace MaplePacketLib {
                 m_socket.BeginReceive(m_recvBuffer, 0, ReceiveSize, SocketFlags.None, out error, PacketCallback, null);
 
                 if (error != SocketError.Success) {
+                    Debug.WriteLine("Failed to Receive: " + error);
                     Disconnect();
                 }
             }
@@ -107,6 +107,7 @@ namespace MaplePacketLib {
                 int length = m_socket.EndReceive(iar, out error);
 
                 if (length == 0 || error != SocketError.Success) {
+                    Debug.WriteLine("Failed to PacketCallback: " + error);
                     Disconnect();
                 } else {
                     Append(length);
@@ -172,8 +173,11 @@ namespace MaplePacketLib {
                     short major = packet.ReadShort();
                     string minor = packet.ReadMapleString();
 
-                    m_clientCipher = new MapleCipher(major, packet.ReadBytes(4), m_aesCipher, CipherType.Encrypt);
-                    m_serverCipher = new MapleCipher(major, packet.ReadBytes(4), m_aesCipher, CipherType.Decrypt);
+                    byte[] riv = packet.ReadBytes(4);
+                    byte[] siv = packet.ReadBytes(4);
+
+                    m_clientCipher = new MapleCipher(major, riv, m_aesCipher, CipherType.Encrypt);
+                    m_serverCipher = new MapleCipher(major, siv, m_aesCipher, CipherType.Decrypt);
 
                     byte locale = packet.ReadByte();
 
@@ -183,6 +187,8 @@ namespace MaplePacketLib {
                         var info = new ServerInfo() {
                             Version = major,
                             Subversion = minor,
+                            Riv = riv,
+                            Siv = siv,
                             Locale = locale
                         };
 
@@ -196,16 +202,16 @@ namespace MaplePacketLib {
         }
 
         public void SendPacket(PacketWriter packet) {
+            SendPacket(packet.ToArray());
+        }
+
+        public void SendPacket(byte[] data) {
             if (!m_connected) {
                 throw new InvalidOperationException("Socket is not connected");
             }
-
             if (!m_encrypted) {
                 throw new InvalidOperationException("Handshake has not been received yet");
             }
-
-            byte[] data = packet.ToArray();
-
             if (data.Length < 2) {
                 throw new ArgumentOutOfRangeException("Packet length must be greater than 2", "packet");
             }

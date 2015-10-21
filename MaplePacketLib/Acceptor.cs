@@ -1,10 +1,13 @@
 ﻿using MaplePacketLib.Cryptography;
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
-namespace MaplePacketLib {
-    public sealed class Acceptor : IDisposable {
+namespace MaplePacketLib
+{
+    public sealed class Acceptor : IDisposable
+    {
         public const int Backlog = 10;
 
         private readonly ServerInfo m_info;
@@ -13,17 +16,21 @@ namespace MaplePacketLib {
         private readonly TcpListener m_listener;
 
         private bool m_started;
+        private bool m_ready;
         private bool m_disposed;
 
-        public int Port {
-            get {
+        public int Port
+        {
+            get
+            {
                 return m_port;
             }
         }
 
         public event EventHandler<Session> OnClientAccepted;
 
-        public Acceptor(ServerInfo info, AesCipher aes, int port) {
+        public Acceptor(ServerInfo info,AesCipher aes,int port)
+        {
             if (info == null)
                 throw new ArgumentNullException("info");
 
@@ -37,10 +44,11 @@ namespace MaplePacketLib {
             m_started = false;
             m_disposed = false;
 
-            m_listener = new TcpListener(IPAddress.Loopback, port);
+            m_listener = new TcpListener(IPAddress.Any, port);
         }
 
-        public void Start() {
+        public void Start()
+        {
             if (m_disposed)
                 throw new ObjectDisposedException(GetType().Name);
 
@@ -48,26 +56,33 @@ namespace MaplePacketLib {
                 throw new InvalidOperationException("Already listening");
 
             m_listener.Start(Backlog);
+            m_started = true;
             m_listener.BeginAcceptSocket(EndAccept, null);
         }
 
-        private void EndAccept(IAsyncResult iar) {
-            if (!m_disposed) {
-                var socket = m_listener.EndAcceptSocket(iar);
-                var session = new Session(socket, SessionType.Server, m_aes);
+        private void EndAccept(IAsyncResult iar)
+        {
+            if (!m_disposed)
+            {
+                Socket socket = m_listener.EndAcceptSocket(iar);
+                Session session = new Session(socket, SessionType.Server, m_aes);
 
                 if (OnClientAccepted != null)
                     OnClientAccepted(this, session);
 
-                session.Start(m_info);
+                //Start this once you know the IV
+                //session.Start();
 
+                //Listen for more connections...
                 if (!m_disposed)
                     m_listener.BeginAcceptSocket(EndAccept, null);
             }
         }
 
-        public void Dispose() {
-            if (!m_disposed) {
+        public void Dispose()
+        {
+            if (!m_disposed)
+            {
                 m_disposed = true;
                 m_listener.Server.Close();
             }
